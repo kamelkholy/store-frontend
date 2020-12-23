@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import TutorialDataService from "../services/tutorial.service";
+import Select from "react-select";
 
 export default class Tutorial extends Component {
   constructor(props) {
@@ -10,105 +11,149 @@ export default class Tutorial extends Component {
     this.updatePublished = this.updatePublished.bind(this);
     this.updateTutorial = this.updateTutorial.bind(this);
     this.deleteTutorial = this.deleteTutorial.bind(this);
+    this.onChangeSortOrder = this.onChangeSortOrder.bind(this);
+    this.handleMultiChange = this.handleMultiChange.bind(this);
 
     this.state = {
       currentTutorial: {
-        id: null,
-        title: "",
+        _id: null,
+        name: "",
         description: "",
-        published: false
+        sortOrder: 0,
       },
-      message: ""
+      categories: [],
+      selectedCategories: [],
+      message: "",
     };
   }
 
   componentDidMount() {
     this.getTutorial(this.props.match.params.id);
+    this.getSubCategories();
   }
 
-  onChangeTitle(e) {
-    const title = e.target.value;
+  getSubCategories() {
+    TutorialDataService.getSelect()
+      .then((response) => {
+        console.log(response.data);
+        this.setState({
+          categories: response.data.filter(cat => {
+            let isChild = this.checkForChild(this.props.match.params.id, cat.subCategories);
+            console.log(isChild);
+            return (cat._id !== this.props.match.params.id) && !isChild
+          }).map((item) => {
+            return { value: item._id, label: item.name }
+          }),
+        });
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+  }
+  checkForChild(id, subCategories) {
+    for (let subCat of subCategories) {
+      if (subCat.subCategories && subCat.subCategories.length > 0 && subCat.subCategories.findIndex(x => x._id == this.props.match.params.id) > -1) {
+        return true;
+      }
+      return this.checkForChild(id, subCat.subCategories)
+    }
+  }
+  handleMultiChange(e, option) {
+    if (option.removedValue && option.removedValue.isFixed) {
+      TutorialDataService.deleteSubCategory(this.props.match.params.id, option.removedValue.value)
+        .then((response) => {
+          console.log(response.data);
+          this.getSubCategories();
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    }
 
-    this.setState(function(prevState) {
+    this.setState({
+      selectedCategories: e
+    });
+  }
+
+  onChangeSortOrder(e) {
+    const sortOrder = e.target.value;
+
+    this.setState(function (prevState) {
       return {
         currentTutorial: {
           ...prevState.currentTutorial,
-          title: title
-        }
+          sortOrder: sortOrder,
+        },
+      };
+    });
+  }
+  onChangeTitle(e) {
+    const name = e.target.value;
+
+    this.setState(function (prevState) {
+      return {
+        currentTutorial: {
+          ...prevState.currentTutorial,
+          name: name,
+        },
       };
     });
   }
 
   onChangeDescription(e) {
     const description = e.target.value;
-    
-    this.setState(prevState => ({
+
+    this.setState((prevState) => ({
       currentTutorial: {
         ...prevState.currentTutorial,
-        description: description
-      }
+        description: description,
+      },
     }));
   }
 
   getTutorial(id) {
     TutorialDataService.get(id)
-      .then(response => {
+      .then((response) => {
+        let selected = response.data.subCategories.map((item) => {
+          return { value: item._id, label: item.name, isFixed: true }
+        })
         this.setState({
-          currentTutorial: response.data
+          currentTutorial: response.data,
+          selectedCategories: selected
         });
-        console.log(response.data);
-      })
-      .catch(e => {
-        console.log(e);
-      });
-  }
 
-  updatePublished(status) {
-    var data = {
-      id: this.state.currentTutorial.id,
-      title: this.state.currentTutorial.title,
-      description: this.state.currentTutorial.description,
-      published: status
-    };
-
-    TutorialDataService.update(this.state.currentTutorial.id, data)
-      .then(response => {
-        this.setState(prevState => ({
-          currentTutorial: {
-            ...prevState.currentTutorial,
-            published: status
-          }
-        }));
-        console.log(response.data);
       })
-      .catch(e => {
+      .catch((e) => {
         console.log(e);
       });
   }
 
   updateTutorial() {
-    TutorialDataService.update(
-      this.state.currentTutorial.id,
-      this.state.currentTutorial
-    )
-      .then(response => {
+    var data = {
+      name: this.state.currentTutorial.name,
+      description: this.state.currentTutorial.description,
+      subCategories: this.state.selectedCategories.filter(x => !x.isFixed).map(x => x.value),
+      sortOrder: this.state.currentTutorial.sortOrder
+    };
+    TutorialDataService.update(this.state.currentTutorial._id, data)
+      .then((response) => {
         console.log(response.data);
         this.setState({
-          message: "The tutorial was updated successfully!"
+          message: "The category was updated successfully!",
         });
       })
-      .catch(e => {
+      .catch((e) => {
         console.log(e);
       });
   }
 
-  deleteTutorial() {    
+  deleteTutorial() {
     TutorialDataService.delete(this.state.currentTutorial.id)
-      .then(response => {
+      .then((response) => {
         console.log(response.data);
-        this.props.history.push('/tutorials')
+        this.props.history.push("/tutorials");
       })
-      .catch(e => {
+      .catch((e) => {
         console.log(e);
       });
   }
@@ -123,12 +168,12 @@ export default class Tutorial extends Component {
             <h4>Tutorial</h4>
             <form>
               <div className="form-group">
-                <label htmlFor="title">Title</label>
+                <label htmlFor="name">Title</label>
                 <input
                   type="text"
                   className="form-control"
-                  id="title"
-                  value={currentTutorial.title}
+                  id="name"
+                  value={currentTutorial.name}
                   onChange={this.onChangeTitle}
                 />
               </div>
@@ -142,37 +187,30 @@ export default class Tutorial extends Component {
                   onChange={this.onChangeDescription}
                 />
               </div>
-
               <div className="form-group">
-                <label>
-                  <strong>Status:</strong>
-                </label>
-                {currentTutorial.published ? "Published" : "Pending"}
+                <label htmlFor="sortOrder">Sort Order</label>
+                <input
+                  type="Number"
+                  className="form-control"
+                  id="sortOrder"
+                  value={currentTutorial.sortOrder}
+                  onChange={this.onChangeSortOrder}
+                  name="sortOrder"
+                />
               </div>
+              <div className="form-group">
+                <label htmlFor="category">Category</label>
+
+                <Select
+                  name="category"
+                  value={this.state.selectedCategories}
+                  options={this.state.categories}
+                  onChange={this.handleMultiChange}
+                  isMulti
+                />
+              </div>
+
             </form>
-
-            {currentTutorial.published ? (
-              <button
-                className="badge badge-primary mr-2"
-                onClick={() => this.updatePublished(false)}
-              >
-                UnPublish
-              </button>
-            ) : (
-              <button
-                className="badge badge-primary mr-2"
-                onClick={() => this.updatePublished(true)}
-              >
-                Publish
-              </button>
-            )}
-
-            <button
-              className="badge badge-danger mr-2"
-              onClick={this.deleteTutorial}
-            >
-              Delete
-            </button>
 
             <button
               type="submit"
@@ -184,11 +222,11 @@ export default class Tutorial extends Component {
             <p>{this.state.message}</p>
           </div>
         ) : (
-          <div>
-            <br />
-            <p>Please click on a Tutorial...</p>
-          </div>
-        )}
+            <div>
+              <br />
+              <p>Please click on a Category...</p>
+            </div>
+          )}
       </div>
     );
   }

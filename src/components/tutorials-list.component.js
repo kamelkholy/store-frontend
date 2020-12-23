@@ -16,7 +16,7 @@ export default class TutorialsList extends Component {
       tutorials: [],
       currentTutorial: null,
       currentIndex: -1,
-      searchTitle: ""
+      searchTitle: "",
     };
   }
 
@@ -28,19 +28,19 @@ export default class TutorialsList extends Component {
     const searchTitle = e.target.value;
 
     this.setState({
-      searchTitle: searchTitle
+      searchTitle: searchTitle,
     });
   }
 
   retrieveTutorials() {
     TutorialDataService.getAll()
-      .then(response => {
+      .then((response) => {
         this.setState({
-          tutorials: response.data
+          tutorials: response.data,
         });
         console.log(response.data);
       })
-      .catch(e => {
+      .catch((e) => {
         console.log(e);
       });
   }
@@ -49,24 +49,36 @@ export default class TutorialsList extends Component {
     this.retrieveTutorials();
     this.setState({
       currentTutorial: null,
-      currentIndex: -1
+      currentIndex: -1,
     });
   }
 
   setActiveTutorial(tutorial, index) {
     this.setState({
       currentTutorial: tutorial,
-      currentIndex: index
+      currentIndex: index,
     });
   }
 
   removeAllTutorials() {
-    TutorialDataService.deleteAll()
-      .then(response => {
+    let ids = this.state.tutorials.map(item => { return item._id })
+    TutorialDataService.deleteAll(ids)
+      .then((response) => {
         console.log(response.data);
         this.refreshList();
       })
-      .catch(e => {
+      .catch((e) => {
+        console.log(e);
+      });
+  }
+  removeTutorial(id) {
+    console.log(id);
+    TutorialDataService.delete(id)
+      .then((response) => {
+        console.log(response.data);
+        this.refreshList();
+      })
+      .catch((e) => {
         console.log(e);
       });
   }
@@ -74,48 +86,36 @@ export default class TutorialsList extends Component {
   searchTitle() {
     this.setState({
       currentTutorial: null,
-      currentIndex: -1
+      currentIndex: -1,
     });
 
     TutorialDataService.findByTitle(this.state.searchTitle)
-      .then(response => {
+      .then((response) => {
         this.setState({
-          tutorials: response.data
+          tutorials: response.data,
         });
         console.log(response.data);
       })
-      .catch(e => {
+      .catch((e) => {
         console.log(e);
       });
   }
 
   render() {
-    const { searchTitle, tutorials, currentTutorial, currentIndex } = this.state;
+    const {
+      searchTitle,
+      tutorials,
+      currentTutorial,
+      currentIndex,
+    } = this.state;
 
     return (
       <div className="list row">
         <div className="col-md-8">
-          <div className="input-group mb-3">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by title"
-              value={searchTitle}
-              onChange={this.onChangeSearchTitle}
-            />
-            <div className="input-group-append">
-              <button
-                className="btn btn-outline-secondary"
-                type="button"
-                onClick={this.searchTitle}
-              >
-                Search
-              </button>
-            </div>
-          </div>
+          <div className="input-group mb-3"></div>
         </div>
         <div className="col-md-6">
-          <h4>Tutorials List</h4>
+          <h4>Categories List</h4>
 
           <ul className="list-group">
             {tutorials &&
@@ -128,7 +128,12 @@ export default class TutorialsList extends Component {
                   onClick={() => this.setActiveTutorial(tutorial, index)}
                   key={index}
                 >
-                  {tutorial.title}
+                  {tutorial.name}
+                  <ul>
+                    {tutorial.subCategories.map((element) => (
+                      <li id={element._id}>{element.name}</li>
+                    ))}
+                  </ul>
                 </li>
               ))}
           </ul>
@@ -143,12 +148,12 @@ export default class TutorialsList extends Component {
         <div className="col-md-6">
           {currentTutorial ? (
             <div>
-              <h4>Tutorial</h4>
+              <h4>Category</h4>
               <div>
                 <label>
                   <strong>Title:</strong>
                 </label>{" "}
-                {currentTutorial.title}
+                {currentTutorial.name}
               </div>
               <div>
                 <label>
@@ -158,24 +163,32 @@ export default class TutorialsList extends Component {
               </div>
               <div>
                 <label>
-                  <strong>Status:</strong>
+                  <strong>Sort Order:</strong>
                 </label>{" "}
-                {currentTutorial.published ? "Published" : "Pending"}
+                {currentTutorial.sortOrder}
               </div>
 
               <Link
-                to={"/tutorials/" + currentTutorial.id}
+                to={"/categories/" + currentTutorial._id}
                 className="badge badge-warning"
               >
                 Edit
               </Link>
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={() => this.removeTutorial(currentTutorial._id)}
+                className="badge badge-danger"
+              >
+                Delete
+              </button>
             </div>
           ) : (
-            <div>
-              <br />
-              <p>Please click on a Tutorial...</p>
-            </div>
-          )}
+              <div>
+                <br />
+                <p>Please click on a Tutorial...</p>
+              </div>
+            )}
         </div>
       </div>
     );
